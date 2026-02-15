@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beginner English Speaking - Lesson 1</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --accent: #10b981;
+            --bg-dark: #111827;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            background: linear-gradient(rgba(17, 24, 39, 0.9), rgba(17, 24, 39, 0.9)), 
+                        url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=2071');
+            background-size: cover;
+            background-attachment: fixed;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            background: rgba(31, 41, 55, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        input[type="text"] {
+            padding: 15px;
+            width: 80%;
+            border-radius: 8px;
+            border: 2px solid var(--primary);
+            background: rgba(255,255,255,0.05);
+            color: white;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            outline: none;
+        }
+        #timer { font-size: 3.5rem; font-weight: 800; color: #fbbf24; margin: 10px 0; }
+        .mic-wave { width: 60px; height: 60px; background: #ef4444; border-radius: 50%; margin: 15px auto; display: none; align-items: center; justify-content: center; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .btn-main { background: var(--primary); color: white; border: none; padding: 15px 40px; border-radius: 10px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-main:hover { opacity: 0.9; transform: translateY(-2px); }
+        .hidden { display: none; }
+        .question-text { font-size: 1.5rem; margin-bottom: 25px; min-height: 80px; color: #e5e7eb; }
+        .grammar-hint { color: #9ca3af; font-size: 0.9rem; margin-bottom: 10px; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="name-screen">
+        <h1>Welcome to English!</h1>
+        <p>Let's practice speaking. Enter your name to start:</p>
+        <input type="text" id="user-name" placeholder="Your Name" autocomplete="off">
+        <br>
+        <button class="btn-main" onclick="startExam()">Start My First Test</button>
+    </div>
+
+    <div class="container hidden" id="exam-screen">
+        <div id="progress" style="margin-bottom: 20px; color: var(--accent);">Question 1 of 8</div>
+        <div class="grammar-hint" id="hint-text">Use "I am / He is / They are"</div>
+        <div class="question-text" id="question-display">Loading...</div>
+        
+        <div id="timer-ui" class="hidden">
+            <div class="mic-wave" id="mic-animation">🎙️</div>
+            <div id="timer">30</div>
+        </div>
+
+        <button id="start-btn" class="btn-main" onclick="startTimer()">Start Recording</button>
+        <button id="next-btn" class="btn-main hidden" onclick="nextQuestion()">Next Question</button>
+    </div>
+
+    <div class="container hidden" id="result-screen">
+        <h2 id="status">Sending to Teacher...</h2>
+        <p id="msg">Please wait while we save your voice recording.</p>
+        <button class="btn-main hidden" id="reload-btn" onclick="location.reload()">Finish</button>
+    </div>
+
+    <script>
+        // Questions focusing on Lesson 1 Grammar (To Be, Present Simple, Continuous)
+        const examQuestions = [
+            { q: "What is your name and where are you from?", hint: "Target: To Be (I am...)" },
+            { q: "How are you feeling right now? Are you excited or nervous?", hint: "Target: To Be (I am...)" },
+            { q: "What is your job or your favorite subject at school?", hint: "Target: Present Simple (I work/study...)" },
+            { q: "What do you usually do on Saturday mornings?", hint: "Target: Present Simple (I wake up/I go...)" },
+            { q: "Look around you. What are you doing right now?", hint: "Target: Present Continuous (I am sitting/speaking...)" },
+            { q: "Think about your best friend. What is he/she doing at the moment?", hint: "Target: Present Continuous (He is working/sleeping...)" },
+            { q: "Do you like learning English? Why?", hint: "Target: Present Simple (I like... because...)" },
+            { q: "Who is your favorite person in your family? Why?", hint: "Target: To Be + Adjectives" }
+        ];
+
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymSyhzgnVgeV7x33yrTLNsfLJywDTY8G5Wv9IGWGAwcjxDZzymszYi3BacTIvCrjI/exec";
+        
+        let userName = "";
+        let currentIdx = 0;
+        let timerVal = 30;
+        let timerInterval;
+        let mediaRecorder;
+        let audioChunks = [];
+
+        async function startExam() {
+            userName = document.getElementById('user-name').value.trim();
+            if (!userName) return alert("Please enter your name.");
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = uploadAudio;
+                mediaRecorder.start();
+
+                document.getElementById('name-screen').classList.add('hidden');
+                document.getElementById('exam-screen').classList.remove('hidden');
+                updateQuestion();
+            } catch (err) {
+                alert("Microphone access is required for this test.");
+            }
+        }
+
+        function updateQuestion() {
+            if (currentIdx >= examQuestions.length) {
+                finish();
+                return;
+            }
+            document.getElementById('progress').innerText = `Question ${currentIdx + 1} of ${examQuestions.length}`;
+            document.getElementById('question-display').innerText = examQuestions[currentIdx].q;
+            document.getElementById('hint-text').innerText = examQuestions[currentIdx].hint;
+            
+            document.getElementById('timer-ui').classList.add('hidden');
+            document.getElementById('next-btn').classList.add('hidden');
+            document.getElementById('start-btn').classList.remove('hidden');
+        }
+
+        function startTimer() {
+            document.getElementById('start-btn').classList.add('hidden');
+            document.getElementById('timer-ui').classList.remove('hidden');
+            document.getElementById('mic-animation').style.display = 'flex';
+            
+            timerVal = 30;
+            document.getElementById('timer').innerText = timerVal;
+            
+            timerInterval = setInterval(() => {
+                timerVal--;
+                document.getElementById('timer').innerText = timerVal;
+                if (timerVal <= 0) nextQuestion();
+            }, 1000);
+
+            document.getElementById('next-btn').classList.remove('hidden');
+        }
+
+        function nextQuestion() {
+            clearInterval(timerInterval);
+            currentIdx++;
+            updateQuestion();
+        }
+
+        function finish() {
+            mediaRecorder.stop();
+            document.getElementById('exam-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+        }
+
+        async function uploadAudio() {
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = async () => {
+                const base64 = reader.result.split(',')[1];
+                try {
+                    await fetch(SCRIPT_URL, { 
+                        method: "POST", 
+                        mode: "no-cors", 
+                        body: JSON.stringify({ 
+                            audio: base64, 
+                            name: userName + " (Lesson 1 Exam)" 
+                        }) 
+                    });
+                    document.getElementById('status').innerText = "Sent Successfully!";
+                    document.getElementById('msg').innerText = "Great job on your first lesson! Your teacher will listen to your recording soon.";
+                    document.getElementById('reload-btn').classList.remove('hidden');
+                } catch (e) {
+                    document.getElementById('status').innerText = "Error Sending";
+                    document.getElementById('msg').innerText = "Something went wrong. Please check your internet.";
+                }
+            };
+        }
+    </script>
+</body>
+</html>
